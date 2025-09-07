@@ -1,0 +1,132 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+# --- 1. Define Pitch Dimensions ---
+PITCH_WIDTH = 68  # units
+PITCH_HEIGHT = 105 # units
+
+# --- 2. Main Script for Jupyter Notebook ---
+
+csv_file_path = '/Users/gustavoortiz/Downloads/ArgVendata2T.csv'
+pitch_image_path = '/Users/gustavoortiz/Downloads/Pitch5.png'
+
+# --- 3. Player to Highlight ---
+PLAYER_TO_HIGHLIGHT = 'Soto' # Change this name to highlight a different player
+
+try:
+    # Load the CSV data into a pandas DataFrame
+    df = pd.read_csv(csv_file_path)
+
+    # Check for required columns
+    required_cols = ['x1', 'y1', 'x2', 'y2', 'player']
+    if not all(col in df.columns for col in required_cols):
+        raise ValueError(f"Missing one or more required columns. Ensure CSV has: {', '.join(required_cols)}")
+
+    # Create the figure and axes for the plot
+    fig, ax = plt.subplots(figsize=(PITCH_WIDTH / 8, PITCH_HEIGHT / 8))
+
+    # --- Load and display the pitch image ---
+    try:
+        img = plt.imread(pitch_image_path)
+        image_extent_left = 0
+        image_extent_right = PITCH_WIDTH
+        image_extent_bottom = 0
+        image_extent_top = PITCH_HEIGHT
+
+        ax.imshow(img,
+                  extent=[image_extent_left, image_extent_right, image_extent_bottom, image_extent_top],
+                  aspect='auto',
+                  zorder=0)
+    except FileNotFoundError:
+        print(f"Error: Pitch image file '{pitch_image_path}' not found.")
+        print("Please ensure the image path is correct and the file exists.")
+        print("Falling back to a green background.")
+        ax.set_facecolor("#4CAF50")
+    except Exception as e:
+        print(f"Error loading pitch image: {e}")
+        print("Falling back to a green background.")
+        ax.set_facecolor("#4CAF50")
+
+    # Set plot limits and aspect ratio to match the pitch dimensions
+    ax.set_xlim(0, PITCH_WIDTH)
+    ax.set_ylim(PITCH_HEIGHT, 0)
+    ax.set_aspect('equal', adjustable='box')
+    ax.axis('off')
+
+    # --- Add the dividing lines ---
+    ax.axhline(y=PITCH_HEIGHT / 2, color='blue', linestyle='--', linewidth=2, zorder=1)
+    ax.plot([PITCH_WIDTH / 2, PITCH_WIDTH / 2], [PITCH_HEIGHT / 2, PITCH_HEIGHT],
+            color='blue', linestyle='--', linewidth=2, zorder=1)
+    
+    # --- Calculate pass percentages ---
+    total_passes = len(df)
+    
+    opposing_half_passes = df[(df['y1'] >= 0) & (df['y1'] < PITCH_HEIGHT / 2)]
+    opposing_half_percentage = (len(opposing_half_passes) / total_passes) * 100
+    
+    own_half_left_passes = df[(df['y1'] >= PITCH_HEIGHT / 2) & (df['x1'] < PITCH_WIDTH / 2)]
+    own_half_left_percentage = (len(own_half_left_passes) / total_passes) * 100
+    
+    own_half_right_passes = df[(df['y1'] >= PITCH_HEIGHT / 2) & (df['x1'] >= PITCH_WIDTH / 2)]
+    own_half_right_percentage = (len(own_half_right_passes) / total_passes) * 100
+    
+    # --- Display the percentages on the plot ---
+    ax.text(PITCH_WIDTH / 2, PITCH_HEIGHT / 4,
+            f"{opposing_half_percentage:.1f}%",
+            ha='center', va='center', color='white', fontsize=20, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.3', fc='black', ec='black', lw=2, alpha=0.5))
+
+    ax.text(PITCH_WIDTH / 4, PITCH_HEIGHT * 3 / 4,
+            f"{own_half_left_percentage:.1f}%",
+            ha='center', va='center', color='white', fontsize=20, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.3', fc='black', ec='black', lw=2, alpha=0.5))
+
+    ax.text(PITCH_WIDTH * 3 / 4, PITCH_HEIGHT * 3 / 4,
+            f"{own_half_right_percentage:.1f}%",
+            ha='center', va='center', color='white', fontsize=20, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.3', fc='black', ec='black', lw=2, alpha=0.5))
+
+    # --- Iterate through the DataFrame and draw each pass ---
+    for index, row in df.iterrows():
+        x1, y1, x2, y2 = row['x1'], row['y1'], row['x2'], row['y2']
+
+        # Determine the color based on the player
+        if row['player'] == PLAYER_TO_HIGHLIGHT:
+            pass_color = 'red'
+            # Increase zorder for highlighted player's passes to ensure they are on top
+            pass_zorder = 3 
+        else:
+            pass_color = 'blue'
+            pass_zorder = 2
+
+        dx = x1 - x2
+        dy = y1 - y2
+
+        ax.arrow(x2, y2, dx, dy,
+                 color=pass_color,
+                 linewidth=1.5,
+                 head_width=0.7,
+                 head_length=1.0,
+                 length_includes_head=True,
+                 alpha=0.8,
+                 zorder=pass_zorder)
+
+    # Set title
+    ax.set_title('Pases completos Argentina 2T (vs Venezuela)', color='Black', fontsize=14, pad=5)
+    fig.patch.set_facecolor('none')
+    fig.patch.set_alpha(0.0)
+
+    # Display the plot
+    plt.show()
+
+except FileNotFoundError:
+    print(f"Error: The CSV file '{csv_file_path}' was not found.")
+    print("Please make sure the CSV file is in the same directory as this notebook, or provide the full path.")
+except ValueError as ve:
+    print(f"Data Error: {ve}")
+    print("Please check your CSV file for correct headers and data format.")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
