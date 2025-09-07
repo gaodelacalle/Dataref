@@ -1,0 +1,75 @@
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import pandas as pd
+from scipy.ndimage import rotate
+
+# Load the image
+img = mpimg.imread('/Users/gustavoortiz/Downloads/Pitch5.png')
+
+# Rotate the image 90 degrees clockwise for a horizontal orientation
+rotated_img = rotate(img, -90, reshape=True)
+
+# Get the dimensions of the rotated image to use for extent
+rotated_img_height, rotated_img_width, _ = rotated_img.shape
+
+# Read the CSV file into a DataFrame
+df = pd.read_csv('/Users/gustavoortiz/Downloads/ArgVendata.csv')
+
+# Get the list of unique players
+players = df['Player'].unique()
+
+# Define original pitch dimensions (assuming your data is based on a 105x68 pitch)
+original_pitch_width = 68
+original_pitch_height = 105
+
+# Create the plot for each player
+for player in players:
+    # Filter the DataFrame to get only the passes from the current player
+    df_player = df[df['Player'] == player].copy()
+
+    # Create the plot - figsize should match the *rotated* pitch aspect ratio
+    fig, ax = plt.subplots(figsize=(10, 15.4))
+
+    # Display the rotated image
+    ax.imshow(rotated_img, extent=[0, original_pitch_height, 0, original_pitch_width])
+
+    # Plot the passes with circles and arrows
+    for i, row in df_player.iterrows():
+        x1_orig = row['x1']
+        y1_orig = row['y1']
+        x2_orig = row['x2']
+        y2_orig = row['y2']
+
+        # After rotating the *image*, the coordinates need to be swapped for plotting
+        x1_plot = y1_orig
+        y1_plot = x1_orig
+        x2_plot = y2_orig
+        y2_plot = x2_orig
+
+        # Adjusted arrow properties for a bigger and sharper arrowhead
+        # These values are a good starting point, feel free to experiment
+        arrow_head_width = 0.010 * original_pitch_height
+        arrow_head_length = 0.015 * original_pitch_width
+
+        # Plot the pass as a blue arrow
+        # We assume the CSV data has x1, y1 as the origin and x2, y2 as the destination.
+        # However, the previous analysis suggested the plot was showing the opposite,
+        # so we plot from x2 to x1 to correctly orient the arrow to the destination.
+        ax.arrow(x2_plot, y2_plot, x1_plot - x2_plot, y1_plot - y2_plot,
+                 color='blue', head_width=arrow_head_width, head_length=arrow_head_length,
+                 linewidth=2, length_includes_head=True)
+
+    # Set the plot limits to match the new orientation's coordinate space
+    ax.set_xlim(0, original_pitch_height)
+    ax.set_ylim(0, original_pitch_width)
+
+    # Remove axis labels and ticks
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.axis('off')
+
+    # Save the plot
+    plt.savefig(f'pases_de_{player.replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
+print("All pass maps generated and saved.")
