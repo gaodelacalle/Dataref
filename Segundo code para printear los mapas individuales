@@ -1,0 +1,97 @@
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import pandas as pd
+import math
+
+# --- Configuration ---
+csv_file_path = '/Users/gustavoortiz/Downloads/file.csv'
+image_folder = '.'  # Assuming pass map images are in the same directory
+n_cols = 4
+figsize_width = 15
+figsize_unit_height = 3.0  # Adjust to control vertical spacing
+subplot_hspace = 0.001  # Adjust horizontal spacing between subplots
+subplot_wspace = 0.001  # Adjust vertical spacing between subplots
+title_bottom_padding = 0.92  # Adjust bottom padding for the main title
+#subtitle_top_padding = 0.88 # Adjust to control the vertical position of the subtitle
+
+# --- Load Data ---
+try:
+    df = pd.read_csv(csv_file_path)
+    players = df['Player'].unique()
+    num_players = len(players)
+except FileNotFoundError:
+    print(f"Error: CSV file not found at {csv_file_path}")
+    exit()
+
+# --- Calculate Grid Dimensions ---
+n_rows = math.ceil(num_players / n_cols)
+figsize_height = figsize_unit_height * n_rows
+
+# --- Create Figure and Axes ---
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(figsize_width, figsize_height))
+
+# --- Adjust Subplot Spacing ---
+plt.subplots_adjust(hspace=subplot_hspace, wspace=subplot_wspace)
+
+# --- Iterate Through Players and Add Pass Maps ---
+for i, player in enumerate(players):
+    row = i // n_cols
+    col = i % n_cols
+
+    if isinstance(axes, plt.Axes):  # Handle single subplot case
+        ax = axes
+    else:
+        ax = axes[row, col]
+
+    # Load the pass map image
+    img_path = f'{image_folder}/pases_de_{player.replace(" ", "_")}.png'
+    try:
+        img = mpimg.imread(img_path)
+        ax.imshow(img)
+        ax.axis('off')  # Turn off axes for each subplot
+
+        # Get player data from DataFrame
+        player_data = df[df['Player'] == player].iloc[0]
+
+        # Extract information (assuming these columns exist in your CSV)
+        shirt_number = player_data.get('Shirt Number', 'N/A')
+        completed_passes = player_data.get('Completed Passes', 'N/A')
+        attempted_passes = player_data.get('Attempted Passes', 'N/A')
+
+        # Calculate pass percentage
+        if isinstance(attempted_passes, (int, float)) and attempted_passes > 0 and isinstance(completed_passes, (int, float)):
+            pass_percentage = f"{int((completed_passes / attempted_passes) * 100)}%"
+        else:
+            #pass_percentage = 'N/A'
+            pass_percentage = f"{int((completed_passes / attempted_passes) * 100)}%"
+
+        # Create the title string on a single line
+        title_str = f"#{shirt_number} {player} ({completed_passes}/{attempted_passes}, {pass_percentage})"
+        ax.set_title(title_str, fontsize=10, loc='center', pad=5)
+
+    except FileNotFoundError:
+        ax.text(0.5, 0.5, f'Image not found: {player}', ha='center', va='center')
+        ax.axis('off')
+    except KeyError as e:
+        print(f"Warning: Column '{e}' not found in CSV for player {player}.")
+        ax.set_title(player, fontsize=10)
+        ax.axis('off')
+    except IndexError:
+        print(f"Warning: Could not retrieve data for player {player} from CSV.")
+        ax.set_title(player, fontsize=10)
+        ax.axis('off')
+
+# If there are empty subplots, turn off their axes
+if num_players < n_rows * n_cols:
+    for i in range(num_players, n_rows * n_cols):
+        row = i // n_cols
+        col = i % n_cols
+        if isinstance(axes, plt.Axes):  # Handle the case of a single subplot
+            axes.axis('off')
+        else:
+            axes[row, col].axis('off')
+
+plt.suptitle('Mapas de Pases por Jugador Venezuela (vs Argentina)', fontsize=16, y=title_bottom_padding) # Adjust y for better title positioning
+plt.suptitle('Estadio La Fortaleza, Lanús, Arbitro: Medina L]', fontsize=14, y=subtitle_top_padding, color='black')
+plt.savefig('mapa_de_pases_combinado_v5.png', dpi=300, bbox_inches='tight')
+plt.show()
