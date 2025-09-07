@@ -1,0 +1,174 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle, Arc, Circle
+import matplotlib.patheffects as pe
+
+def draw_pitch(ax):
+    """
+    Draws a basic football pitch on the given matplotlib axes.
+    """
+    # Pitch dimensions
+    pitch_length = 105
+    pitch_width = 68
+
+    # Outer box
+    ax.add_patch(Rectangle((0, 0), pitch_length, pitch_width, edgecolor='black', facecolor='none', lw=4))
+
+    # Center line
+    ax.plot([pitch_length/2, pitch_length/2], [0, pitch_width], color='black', lw=2)
+
+    # Center circle
+    ax.add_patch(Arc((pitch_length/2, pitch_width/2), 9.15*2, 9.15*2, angle=0, theta1=0, theta2=360, edgecolor='black', lw=2, zorder=1))
+
+    # Penalty box (left)
+    ax.add_patch(Rectangle((0, (pitch_width-40.32)/2), 16.5, 40.32, edgecolor='black', facecolor='none', lw=2))
+    # Six-yard box (left)
+    ax.add_patch(Rectangle((0, (pitch_width-18.32)/2), 5.5, 18.32, edgecolor='black', facecolor='none', lw=2))
+    # Penalty spot (left)
+    ax.plot(11, pitch_width/2, 'o', color='black', markersize=6)
+    # Penalty arc (left)
+    ax.add_patch(Arc((11, pitch_width/2), 9.15*2, 9.15*2, angle=0, theta1=308, theta2=52, edgecolor='black', lw=2, zorder=0))
+
+    # Penalty box (right)
+    ax.add_patch(Rectangle((pitch_length-16.5, (pitch_width-40.32)/2), 16.5, 40.32, edgecolor='black', facecolor='none', lw=2))
+    # Six-yard box (right)
+    ax.add_patch(Rectangle((pitch_length-5.5, (pitch_width-18.32)/2), 5.5, 18.32, edgecolor='black', facecolor='none', lw=2))
+    # Penalty spot (right)
+    ax.plot(pitch_length-11, pitch_width/2, 'o', color='black', markersize=6)
+    # Penalty arc (right)
+    ax.add_patch(Arc((pitch_length-11, pitch_width/2), 9.15*2, 9.15*2, angle=0, theta1=128, theta2=232, edgecolor='black', lw=2, zorder=0))
+
+    # Goalposts
+    ax.add_patch(Rectangle((0, (pitch_width-7.32)/2), -2, 7.32, edgecolor='black', facecolor='none', lw=2))
+    ax.add_patch(Rectangle((pitch_length, (pitch_width-7.32)/2), 2, 7.32, edgecolor='black', facecolor='none', lw=2))
+
+    ax.set_aspect('equal')
+    ax.set_facecolor('#284725') # Grass color
+    ax.set_xlim(0, pitch_length)
+    ax.set_ylim(0, pitch_width)
+
+# ⚽️ Step 1: Load the data from your CSV file
+try:
+    df = pd.read_csv('/Users/gustavoortiz/Downloads/EndzoneArgVen.csv')
+except FileNotFoundError:
+    print("Error: The file 'your_data.csv' was not found.")
+    data = {
+        'x1': np.random.randint(0, 105, 500),
+        'y1': np.random.randint(0, 68, 500),
+        'x2': np.random.randint(0, 105, 500),
+        'y2': np.random.randint(0, 68, 500),
+        'team': ['Argentina'] * 250 + ['Venezuela'] * 250
+    }
+    df = pd.DataFrame(data)
+    print("Using a dummy DataFrame for demonstration.")
+
+# ⚽️ Step 2: Swap the coordinates to correctly orient the data
+df_rotated = df.copy() 
+df_rotated['x1_rot'] = df_rotated['y1']
+df_rotated['y1_rot'] = df_rotated['x1']
+df_rotated['x2_rot'] = df_rotated['y2']
+df_rotated['y2_rot'] = df_rotated['x2']
+
+# ⚽️ Step 3: Set up the football pitch dimensions
+pitch_width = 68
+pitch_length = 105
+
+# Define the number of bins (grid cells) for the heatmap.
+bins_x = 6
+bins_y = 5
+
+# ⚽️ Step 4: Filter the data for each team
+chelsea_data = df_rotated[df_rotated['team'] == 'Argentina']
+mancity_data = df_rotated[df_rotated['team'] == 'Venezuela']
+
+# ⚽️ Step 5: Create the 2D histograms (heatmaps)
+heatmap_chelsea, xedges, yedges = np.histogram2d(
+    chelsea_data['x1_rot'], chelsea_data['y1_rot'],
+    bins=[bins_x, bins_y], range=[[0, pitch_length], [0, pitch_width]]
+)
+
+heatmap_mancity, _, _ = np.histogram2d(
+    mancity_data['x1_rot'], mancity_data['y1_rot'],
+    bins=[bins_x, bins_y], range=[[0, pitch_length], [0, pitch_width]]
+)
+
+# Normalize the heatmaps to get percentages.
+heatmap_chelsea_norm = (heatmap_chelsea / np.sum(heatmap_chelsea)) * 100
+heatmap_mancity_norm = (heatmap_mancity / np.sum(heatmap_mancity)) * 100
+
+# ⚽️ Step 6: Plotting the heatmaps
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 8))
+
+# --- Plotting San Lorenzo's Pass End Zone ---
+draw_pitch(ax1)
+im1 = ax1.imshow(
+    heatmap_chelsea_norm.T,
+    cmap='Reds',
+    interpolation='nearest',
+    extent=[0, pitch_length, 0, pitch_width],
+    origin='lower'
+)
+ax1.set_title('Argentina destino de los pases', fontsize=22)
+ax1.set_xlim(pitch_length, 0)
+ax1.set_ylim(pitch_width, 0)
+
+# Add a legend for the direction of attack
+ax1.text(pitch_length / 2, pitch_width + 10, 'Dirección de ataque', color='red', ha='center', va='bottom', fontsize=12, zorder=3)
+ax1.arrow(pitch_length / 2 + 10, -5, -20, 0, head_width=2, head_length=3, fc='red', ec='black', lw=2, zorder=3)
+
+# Add percentage labels and data points to the plot.
+for i in range(bins_y):
+    for j in range(bins_x):
+        percentage = heatmap_chelsea_norm.round(0)[j, i]
+        ax1.text(
+            xedges.round(2)[j] + (xedges.round(2)[1] - xedges.round(2)[0]) / 2,
+            yedges.round(2)[i] + (yedges.round(2)[1] - yedges.round(2)[0]) / 2,
+            f'{percentage:.0f}%',
+            ha='center', va='center', color='black', fontsize=22,
+            path_effects=[pe.withStroke(linewidth=3, foreground='white')]
+        )
+# <--- CORRECTED LINE FOR SAN LORENZO ---
+ax1.scatter(chelsea_data['x1_rot'], chelsea_data['y1_rot'], s=15, c='black', alpha=0.5)
+
+
+# --- Plotting Tigre's Pass End Zone ---
+draw_pitch(ax2)
+im2 = ax2.imshow(
+    heatmap_mancity_norm.T,
+    cmap='Blues',
+    interpolation='nearest',
+    extent=[0, pitch_length, 0, pitch_width],
+    origin='lower'
+)
+ax2.set_title('Venezuela destino de los pases', fontsize=22)
+ax2.set_xlim(0, pitch_length)
+ax2.set_ylim(-20, pitch_width)
+
+# Add a legend for the direction of attack
+ax2.text(pitch_length / 2, -10, 'Dirección de ataque', color='red', ha='center', va='bottom', fontsize=12, zorder=3)
+ax2.arrow(pitch_length / 2 + 10, -5, -20, 0, head_width=2, head_length=3, fc='red', ec='black', lw=2, zorder=3)
+
+# Add percentage labels and data points.
+for i in range(bins_y):
+    for j in range(bins_x):
+        percentage = heatmap_mancity_norm.round(0)[j, i]
+        ax2.text(
+            xedges.round(2)[j] + (xedges.round(2)[1] - xedges.round(2)[0]) / 2,
+            yedges.round(2)[i] + (yedges.round(2)[1] - yedges.round(2)[0]) / 2,
+            f'{percentage:.0f}%',
+            ha='center', va='center', color='black', fontsize=22,
+            path_effects=[pe.withStroke(linewidth=3, foreground='white')]
+        )
+# <--- CORRECTED LINE FOR TIGRE ---
+ax2.scatter(mancity_data['x1_rot'], mancity_data['y1_rot'], s=15, c='black', alpha=0.3)
+
+
+# Hide the axes for a cleaner look, similar to the original image.
+ax1.axis('off')
+ax2.axis('off')
+
+# Adjust the space between and around subplots
+plt.subplots_adjust(wspace=0.3, left=0.05, right=0.95)
+
+plt.show()
